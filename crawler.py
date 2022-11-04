@@ -11,6 +11,7 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
 }
 
+
 def search_from_iclr(url, name, res):
     r = requests.get(url, headers=HEADERS)
     data = r.json()
@@ -19,7 +20,7 @@ def search_from_iclr(url, name, res):
     for item in data["notes"]:
         res[name].append(
             {
-                "paper_name": item["content"]["title"], 
+                "paper_name": item["content"]["title"],
                 "paper_url": "https://openreview.net" + item["content"]["pdf"],
                 "paper_authors": item["content"]["authors"],
                 "paper_abstract": item['content']['abstract'],
@@ -29,6 +30,7 @@ def search_from_iclr(url, name, res):
         )
     return res
 
+
 def search_abs_from_nips(url):
     r = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
@@ -36,6 +38,7 @@ def search_abs_from_nips(url):
         lambda tag: tag.name == "h4" and 'Abstract' in tag.text
     ).next_sibling.next_sibling.text.strip()
     return abstract
+
 
 def search_from_nips(url, name, res):
     r = requests.get(url, headers=HEADERS)
@@ -57,7 +60,7 @@ def search_from_nips(url, name, res):
 
         res[name].append(
             {
-                "paper_name": paper_item.a.string, 
+                "paper_name": paper_item.a.string,
                 "paper_url": paper_url,
                 "paper_authors": paper_author,
                 "paper_abstract": paper_abstract,
@@ -69,7 +72,7 @@ def search_from_nips(url, name, res):
 
 
 def search_from_acl(url, tag, name, res):
-    r = requests.get(url, headers=HEADERS)
+    r = requests.get(url, headers=HEADERS, verify=False)
     soup = BeautifulSoup(r.text, "html.parser")
     if name not in res:
         res[name] = []
@@ -85,7 +88,7 @@ def search_from_acl(url, tag, name, res):
             else:
                 # print(f"Skip url:{paper_url}")
                 paper_abstract = ""
-            
+
             res[name].append(
                 {
                     "paper_name": paper,
@@ -105,8 +108,8 @@ def search_abs_from_dblp(url):
     except Exception as e:
         msg = str(e)
         if "doesn't match either of 'aaai.org'" in msg:
-            hostname = e.request.url.replace('//','/').split('/')[1]
-            url = e.request.url.replace(hostname,'aaai.org')
+            hostname = e.request.url.replace('//', '/').split('/')[1]
+            url = e.request.url.replace(hostname, 'aaai.org')
         r = requests.get(url, headers=HEADERS)
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -163,7 +166,7 @@ def search_from_dblp(url, name, res):
         paper = "".join([item for item in items if isinstance(item, str)])
         try:
             # paper_abstract = search_abs_from_dblp(paper_url)
-            paper_abstract = "" # due to limits
+            paper_abstract = ""  # due to limits
         except:
             print(f"Skip url:{paper_url}")
             paper_abstract = ""
@@ -171,7 +174,7 @@ def search_from_dblp(url, name, res):
             paper = paper[:-1]
         res[name].append(
             {
-                "paper_name": paper, 
+                "paper_name": paper,
                 "paper_url": paper_url,
                 "paper_authors": paper_authors,
                 "paper_abstract": paper_abstract,
@@ -188,12 +191,13 @@ def search_abs_from_thecvf(url):
     abstract = soup.find(id="abstract").text.strip()
     return abstract
 
+
 def search_from_thecvf(url, name, res):
     r = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
     if name not in res:
         res[name] = []
-        
+
     for paper_item in soup.find_all("dt", class_="ptitle"):
         url_postfix = paper_item.a["href"]
         if url_postfix[0] == '/':
@@ -208,7 +212,7 @@ def search_from_thecvf(url, name, res):
             paper_abstract = ""
         res[name].append(
             {
-                "paper_name": paper, 
+                "paper_name": paper,
                 "paper_url": paper_url,
                 "paper_authors": paper_authors,
                 "paper_abstract": paper_abstract,
@@ -221,9 +225,9 @@ def search_from_thecvf(url, name, res):
 
 def get_code_links(url):
     r = requests.get(url, headers=HEADERS)
-    texts = [[text.strip().split('\r\n\r\n')[0].split('\n')[0].replace('#','').strip(), 
-              text.strip().split('代码链接')[-1].replace('：',':').replace(':[','').replace(':h','h')
-            ]for text in r.text.split('####') if text != '']
+    texts = [[text.strip().split('\r\n\r\n')[0].split('\n')[0].replace('#', '').strip(),
+              text.strip().split('代码链接')[-1].replace('：', ':').replace(':[', '').replace(':h', 'h')
+              ] for text in r.text.split('####') if text != '']
     for i, text in enumerate(texts):
         try:
             idx = texts[i][1].rindex('](')
@@ -238,13 +242,14 @@ def get_code_links(url):
     texts = [text for text in texts if text[1].startswith("http")]
     return texts
 
+
 def add_code_links(res):
     url = 'https://github.com/MLNLP-World/Top-AI-Conferences-Paper-with-Code'
     r = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
     urls = [url['href'] for url in soup.find('table').find_all('a')]
-    urls = {url.split('/')[-1][:-3].upper().replace('-','').replace('EUR',''):
-            url.replace('github.com', 'raw.githubusercontent.com').replace('blob/','') for url in urls}
+    urls = {url.split('/')[-1][:-3].upper().replace('-', '').replace('EUR', ''):
+                url.replace('github.com', 'raw.githubusercontent.com').replace('blob/', '') for url in urls}
 
     for conf in urls:
         code_url = urls[conf]
@@ -262,8 +267,10 @@ def add_code_links(res):
                     res[conf][ii]['paper_code'] = link
                     break
             if not flag:
-                import pdb; pdb.set_trace();
+                import pdb;
+                pdb.set_trace();
     return res
+
 
 def get_citation(keyword):
     url = f'https://api.semanticscholar.org/graph/v1/paper/search?query={keyword}&limit=1&fields=title,citationCount'
@@ -277,6 +284,7 @@ def get_citation(keyword):
     time.sleep(3)
     return citation
 
+
 def add_citation(res):
     for conf in res:
         for ii, item in enumerate(tqdm(res[conf], desc="[+] Crawling Citation", dynamic_ncols=True)):
@@ -289,6 +297,7 @@ def add_citation(res):
             citation = get_citation(paper_name)
             res[conf][ii]['paper_cite'] = citation
     return res
+
 
 def crawl(cache_file=None, force=False):
     res = {}
@@ -312,21 +321,20 @@ def crawl(cache_file=None, force=False):
         if name in cache_conf:
             continue
         res = search_from_acl(url, tag, name, res)
-        
+
     for conf in tqdm(iclr_conf, desc="[+] Crawling ICLR", dynamic_ncols=True):
         assert conf.get("name") and conf.get("url")
         url, name = conf["url"], conf["name"]
         if name in cache_conf:
             continue
         res = search_from_iclr(url, name, res)
-        
+
     for conf in tqdm(thecvf_conf, desc="[+] Crawling openacess.thecvf", dynamic_ncols=True):
         assert conf.get("name") and conf.get("url")
         url, name = conf["url"], conf["name"]
         if name in cache_conf:
             continue
         res = search_from_thecvf(url, name, res)
-        
 
     for conf in tqdm(nips_conf, desc="[+] Crawling NeurIPS", dynamic_ncols=True):
         assert conf.get("name") and conf.get("url")
@@ -341,7 +349,7 @@ def crawl(cache_file=None, force=False):
         if name in cache_conf:
             continue
         res = search_from_dblp(url, name, res)
-     
+
     res.update(cache_res)
 
     res = add_code_links(res)
