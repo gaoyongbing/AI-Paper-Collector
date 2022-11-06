@@ -8,7 +8,7 @@ from thefuzz import process
 from collections import defaultdict
 from nltk.stem.porter import PorterStemmer
 from nltk.tokenize import word_tokenize
-nltk.download('punkt')
+# nltk.download('punkt')
 stemmer = PorterStemmer()
 
 
@@ -31,7 +31,7 @@ def get_posting_list(res, file_name="postings.pkl"):
         if not os.path.exists(os.path.dirname(filename)):
             os.makedirs(os.path.dirname(filename))
         return filename
-    
+
     posting_path = _check_filename(file_name)
     if os.path.exists(posting_path):
         postings, posting_indexes = pickle.load(open(posting_path, 'rb'))
@@ -55,10 +55,9 @@ def check_conf(conf, input_confs):
 
 
 def fuzzy_search(indexes, candidates, query, threshold=None, confs=None, limit=None):
-
     if threshold is None:
         threshold = 50
-        
+
     # Note that threshold cannot be too large, otherwise the search results will be too few
     # sl: [(paper, score, index),...]
     sl = process.extractWithoutOrder(query, candidates, score_cutoff=threshold)
@@ -83,15 +82,21 @@ def fuzzy_search(indexes, candidates, query, threshold=None, confs=None, limit=N
 def exact_search(indexes, query, confs=None):
     results = []
     query = query.lower()
-    results = [item for item in indexes if query in item[1].lower()]
+
+    for item in indexes:
+        if query in item[1]['paper_name'].lower():
+            results = results + [item]
     if confs is not None:
         results = [item for item in results if check_conf(item[0], confs)]
+
+
     return results
 
 
 def boolean_search(query, postings, posting_indexes, confs=None):
     def _op(operator, left_operand: set, right_operand=None):
-        assert operator in ["AND", "OR", "NOT"], "Operator should be in ['AND', 'OR', 'NOT'], but get {}!!!".format(operator)
+        assert operator in ["AND", "OR", "NOT"], "Operator should be in ['AND', 'OR', 'NOT'], but get {}!!!".format(
+            operator)
         if operator == "AND":
             assert right_operand is not None, "The right operand should not be None when the operator is AND!!!"
             return left_operand.intersection(right_operand)
@@ -106,12 +111,12 @@ def boolean_search(query, postings, posting_indexes, confs=None):
         operand_stack = []
 
         for unit in query_units:
-            if unit in ["AND", "OR", "NOT", "(", ")"]: # operators
+            if unit in ["AND", "OR", "NOT", "(", ")"]:  # operators
                 cur_prece = precedence[unit]
                 stack_prece = -100 if len(operator_stack) == 0 else precedence[unit]
                 if cur_prece > stack_prece:
                     operator_stack.append(unit)
-                else: # can calculate the operators in the stack with lower of eq precedence
+                else:  # can calculate the operators in the stack with lower of eq precedence
                     if unit == ")":
                         while len(operator_stack) and operator_stack[-1] != "(":
                             op = operator_stack.pop()
@@ -119,29 +124,31 @@ def boolean_search(query, postings, posting_indexes, confs=None):
                             right_operand = operand_stack.pop() if op != "NOT" else None
                             res = _op(op, left_operand, right_operand)
                             operand_stack.append(res)
-                        operator_stack.pop() # popout "("
+                        operator_stack.pop()  # popout "("
                     else:
-                        while len(operator_stack) and operator_stack[-1] != "(" and cur_prece <= precedence[operator_stack[-1]]:
+                        while len(operator_stack) and operator_stack[-1] != "(" and cur_prece <= precedence[
+                            operator_stack[-1]]:
                             op = operator_stack.pop()
                             left_operand = operand_stack.pop()
                             right_operand = operand_stack.pop() if op != "NOT" else None
                             res = _op(op, left_operand, right_operand)
                             operand_stack.append(res)
                         operator_stack.append(unit)
-            else: # operands
+            else:  # operands
                 try:
                     operand_stack.append(set(postings[unit].keys()))
                 except KeyError:
                     operand_stack.append(set())
-        
+
         while len(operator_stack):
             op = operator_stack.pop()
             left_operand = operand_stack.pop()
             right_operand = operand_stack.pop() if op != "NOT" else None
             res = _op(op, left_operand, right_operand)
             operand_stack.append(res)
-        
-        assert len(operand_stack) == 1, "Operand_stack should contain only one element after processing, but length is {}".format(len(operand_stack))
+
+        assert len(
+            operand_stack) == 1, "Operand_stack should contain only one element after processing, but length is {}".format(len(operand_stack))
         return operand_stack[-1]
 
     # define precedences
@@ -153,7 +160,8 @@ def boolean_search(query, postings, posting_indexes, confs=None):
     precedence[')'] = -100
 
     all_docs = set(range(len(posting_indexes)))
-    query_units = [stemmer.stem(token) if token not in ['AND', 'OR', 'NOT'] else token for token in word_tokenize(query)]
+    query_units = [stemmer.stem(token) if token not in ['AND', 'OR', 'NOT'] else token for token in
+                   word_tokenize(query)]
 
     cand_ids = _parse_query(query_units)
     results = [posting_indexes[x] for x in cand_ids]
@@ -166,9 +174,13 @@ def sort_results(results):
     def cmp_by_year(x, y):
         x_year = re.search(r'\d{4}', x[0]).group()
         y_year = re.search(r'\d{4}', y[0]).group()
-        if x_year < y_year: return 1
-        elif x_year > y_year: return -1
-        else: return 0
+        if x_year < y_year:
+            return 1
+        elif x_year > y_year:
+            return -1
+        else:
+            return 0
+
     return sorted(results, key=functools.cmp_to_key(cmp_by_year))
 
 
